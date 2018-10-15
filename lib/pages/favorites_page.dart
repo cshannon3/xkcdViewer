@@ -32,7 +32,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
     );
   }
 
-  _buildFavoritesList() {
+   _buildFavoritesList() {
     final favorites = prefs.getStringList(Constants.favorites);
     if (favorites != null && favorites.isNotEmpty) {
       return FutureBuilder(
@@ -48,6 +48,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                 return Container(width: 0.0, height: 0.0);
               } else {
                 var data = snapshot.data;
+                comics = data;
                 if (data != null && data is List) {
                   return ListView.builder(
                     itemCount: data.length,
@@ -93,7 +94,9 @@ class _FavoritesPageState extends State<FavoritesPage> {
         Navigator.of(context).push(MaterialPageRoute(
           maintainState: true,
           builder: (context) {
-            return ComicPage(comic);
+            return ComicPage(
+              comics: comics,
+            );
           },
         ));
       },
@@ -118,7 +121,8 @@ class _FavoritesPageState extends State<FavoritesPage> {
             text: '${comic.title}',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
-          TextSpan(text: ' ${AppLocalizations.of(context).get('favorite_removed')}'),
+          TextSpan(
+              text: ' ${AppLocalizations.of(context).get('favorite_removed')}'),
         ])),
       ),
     );
