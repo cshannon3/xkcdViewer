@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xkcd/blocs/comic_bloc.dart';
@@ -20,55 +22,52 @@ class HomePage extends StatefulWidget {
 class HomePageState extends State<HomePage> {
   final SharedPreferences prefs = Preferences.prefs;
   bool _firstLoad = true;
+  List<Comic> comics;
+  Random random;
 
-  @override
-  void initState() {
-    super.initState();
-  }
+  double scrollPercent = 0.0;
 
   @override
   Widget build(BuildContext context) {
     ComicBloc bloc = ComicBlocProvider.of(context).bloc;
 
     if (_firstLoad) {
-      bloc.fetchLatestComic();
+      bloc.fetchLatestComics();
       _firstLoad = false;
     }
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: _buildBodyContent(),
+      body: StreamBuilder(
+        initialData: bloc.getCurrentState(),
+        stream: bloc.comicStream,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Text(AppLocalizations.of(context).get('something_wrong')),
+            );
+          }
+          if (snapshot.data.loading) {
+            return Center();
+          }
+          comics = snapshot.data.comics;
+          return ComicsView(
+              comics: comics,
+              onScroll: (double scrollPercent) {
+                setState(() {
+                  this.scrollPercent = scrollPercent;
+                });
+              });
+        },
+      ),
       floatingActionButton: _buildFab(),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: _buildBottomAppBar(),
     );
   }
 
-  _buildBodyContent() {
-    ComicBloc bloc = ComicBlocProvider.of(context).bloc;
-
-    return StreamBuilder(
-      initialData: bloc.getCurrentState(),
-      stream: bloc.comicStream,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(
-            child: Text(AppLocalizations.of(context).get('something_wrong')),
-          );
-        }
-        if (snapshot.data.loading) {
-          return Center();
-        }
-
-        Comic comic = snapshot.data.comic;
-        return ComicView(comic);
-      },
-    );
-  }
-
   _buildFab() {
     ComicBloc bloc = ComicBlocProvider.of(context).bloc;
-
     return StreamBuilder(
       initialData: bloc.getCurrentState(),
       stream: bloc.comicStream,
@@ -77,7 +76,7 @@ class HomePageState extends State<HomePage> {
           icon: Icon(Icons.autorenew),
           label: Text(AppLocalizations.of(context).get('random')),
           onPressed: () {
-            bloc.fetchRandom();
+            bloc.fetchRandomComics();
           },
         );
       },
@@ -129,15 +128,17 @@ class HomePageState extends State<HomePage> {
     final widgets = [
       ListTile(
         leading: Icon(Icons.home, color: Colors.white),
-        title: Text(appLocalizations.get('latest_comic'), style: TextStyle(color: Colors.white)),
+        title: Text(appLocalizations.get('latest_comic'),
+            style: TextStyle(color: Colors.white)),
         onTap: () {
           Navigator.pop(context);
-          bloc.fetchLatest();
+          bloc.fetchLatestComics();
         },
       ),
       ListTile(
         leading: Icon(Icons.info_outline, color: Colors.white),
-        title: Text(appLocalizations.get('explain_current'), style: TextStyle(color: Colors.white)),
+        title: Text(appLocalizations.get('explain_current'),
+            style: TextStyle(color: Colors.white)),
         onTap: () {
           Navigator.pop(context);
           bloc.explainCurrentComic();
@@ -145,7 +146,8 @@ class HomePageState extends State<HomePage> {
       ),
       ListTile(
         leading: Icon(Icons.favorite, color: Colors.white),
-        title: Text(appLocalizations.get('my_favorites'), style: TextStyle(color: Colors.white)),
+        title: Text(appLocalizations.get('my_favorites'),
+            style: TextStyle(color: Colors.white)),
         onTap: () {
           Navigator.pop(context);
           Navigator.of(context).pushNamed(FavoritesPage.favoritesPageRoute);
@@ -153,7 +155,8 @@ class HomePageState extends State<HomePage> {
       ),
       ListTile(
         leading: Icon(Icons.settings, color: Colors.white),
-        title: Text(appLocalizations.get('settings'), style: TextStyle(color: Colors.white)),
+        title: Text(appLocalizations.get('settings'),
+            style: TextStyle(color: Colors.white)),
         onTap: () {
           Navigator.pop(context);
           Navigator.of(context).pushNamed(SettingsPage.settingsPageRoute);
@@ -178,7 +181,7 @@ class HomePageState extends State<HomePage> {
     Comic comic = _getCurrentComic();
 
     bool isFavorite = false;
-    if (comic != null) {
+    if (comics != null) {
       var favorites = prefs.getStringList(Constants.favorites);
       var num = comic.num.toString();
       isFavorite = favorites?.contains(num) ?? false;
@@ -203,7 +206,7 @@ class HomePageState extends State<HomePage> {
 
   _handleFavoriteAction() {
     Comic comic = _getCurrentComic();
-    if (comic == null) {
+    if (comics == null) {
       return;
     }
 
@@ -222,6 +225,9 @@ class HomePageState extends State<HomePage> {
 
   _getCurrentComic() {
     ComicBloc bloc = ComicBlocProvider.of(context).bloc;
-    return bloc.getCurrentState().comic;
+    if (comics == null) return null;
+    return bloc
+        .getCurrentState()
+        .comics[(scrollPercent * comics.length).floor()];
   }
 }
