@@ -2,12 +2,15 @@ import 'package:xkcd/data/comic.dart';
 
 class ComicBlocState {
   bool loading;
-  Comic comic;
+  List<Comic> comics;
 
-  ComicBlocState(this.loading, this.comic);
+  ComicBlocState(
+    this.loading,
+    this.comics,
+  );
 
   ComicBlocState.empty() {
     loading = false;
-    comic = null;
+    comics = [];
   }
 }
