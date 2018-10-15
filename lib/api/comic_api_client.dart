@@ -33,6 +33,32 @@ class ComicApiClient {
     return null;
   }
 
+  Future<List<Comic>> fetchLatestComics() async {
+    final response = await http.get(_baseApiUrl);
+    if (response.statusCode == 200) {
+      var comic = Comic.fromJson(json.decode(response.body));
+      if (_latestComicNum < 0) {
+        _latestComicNum = comic.num;
+      }
+      List<String> latestComicIds = List.generate((5), (index) {
+        return (_latestComicNum - (index + 1)).toString();
+      });
+      final responses = await Future.wait(latestComicIds.map((comicId) {
+        String url = _subApiUrl.replaceAll('{0}', comicId);
+        return http.get(url);
+      }));
+      var list = responses.map((response) {
+        return Comic.fromJson(json.decode(response.body));
+      }).toList();
+      list.insert(0, comic);
+      _currentComicNum = _latestComicNum;
+      return list;
+    } else {
+      debugPrint('${response.statusCode}: ${response.toString()}');
+    }
+    return null;
+  }
+
   Future<Comic> fetchRandomComic() async {
     if (_latestComicNum > 0) {
       final randomNumber = Random().nextInt(_latestComicNum);
@@ -50,14 +76,31 @@ class ComicApiClient {
     return fetchLatestComic();
   }
 
+  Future<List<Comic>> fetchRandomComics() async {
+    List<String> comicIds = List.generate((5), (index) {
+      return Random().nextInt(_latestComicNum).toString();
+    });
+
+    final responses = await Future.wait(comicIds.map((comicId) {
+      String url = _subApiUrl.replaceAll('{0}', comicId);
+      return http.get(url);
+    }));
+    var list = responses.map((response) {
+      return Comic.fromJson(json.decode(response.body));
+    }).toList();
+    return list;
+  }
+
   void explainCurrentComic() async {
     final String explainUrl = _explainXkcdUrl + _currentComicNum.toString();
     if (await canLaunch(explainUrl)) {
-      FlutterWebBrowser.openWebPage(url: explainUrl, androidToolbarColor: Colors.white);
+      FlutterWebBrowser.openWebPage(
+          url: explainUrl, androidToolbarColor: Colors.white);
     }
   }
 
   static Future<List<Comic>> fetchComics(List<String> comicIds) async {
+    print(comicIds);
     final responses = await Future.wait(comicIds.map((comicId) {
       String url = _subApiUrl.replaceAll('{0}', comicId);
       return http.get(url);
